@@ -4,6 +4,7 @@ using BepInEx;
 using UnityEngine.SceneManagement;
 using System.IO;
 using System.Text;
+using System.Reflection;
 
 namespace SpeebUp
 {
@@ -26,9 +27,12 @@ namespace SpeebUp
         private int sceneSelected = 0;
         private GUIStyle style;
         private GUIStyle styleLeft;
-        private const string helpText = "Q: toggle recording, R: teleport (stops recording), Z: set teleport, 0-9: select section, T: reset section speed, Y: select scene, U: teleport scene";
+        private const string helpText = "Q: toggle recording, R: teleport (stops recording), Z: set teleport, 0-9: select section, T: reset section speed, Y: select scene, U: teleport scene, X: toggle green timer";
         private bool toggleHelp = false;
+        private bool toggleGreen = false;
         private string displayIndicators = "selected scene: <color=\"blue\">Scn_Level_1</color>";
+        private FieldInfo intervalTimer;
+        private Flipper flipper;
 
         public void Awake()
         {
@@ -128,7 +132,7 @@ namespace SpeebUp
         {
             if (SceneLoader.isLoading && SceneManager.GetActiveScene().name == SceneLoader.sceneLoading.Name) //finished loading scene
             {
-                GlideController componentInChildren = UnityEngine.Object.Instantiate<GameObject>(SceneFader.playerPrefab, SceneLoader.greenSkipPosition, Quaternion.identity).GetComponentInChildren<GlideController>();
+                GlideController componentInChildren = Instantiate(SceneFader.playerPrefab, SceneLoader.greenSkipPosition, Quaternion.identity).GetComponentInChildren<GlideController>();
                 componentInChildren.transform.position = SceneLoader.sceneLoading.PlayerPosition;
                 componentInChildren.m_goalAngles = Vector3.zero;
                 componentInChildren.transform.rotation = Quaternion.Euler(0.0f, 0.0f, 0.0f);
@@ -143,6 +147,15 @@ namespace SpeebUp
                 {
                     sceneSelected = (sceneSelected + 1) % 7; //restrict to max 6
                     displayIndicators = $"selected scene: <color=\"blue\">{SceneData.Scenes[sceneSelected].Name}</color>";
+                }
+                if (Input.GetKeyDown(KeyCode.X)) //toggle green timer
+                {
+                    toggleGreen = !toggleGreen;
+                    if (toggleGreen)
+                    {
+                        intervalTimer = typeof(Flipper).GetField("m_intervalTimer");
+                        flipper = GameObject.Find("Flipper").GetComponent<Flipper>();
+                    }
                 }
                 if (Input.GetKeyDown(KeyCode.U) && !SceneLoader.isLoading && SceneManager.GetActiveScene().name != SceneData.Scenes[sceneSelected].Name)
                 {
@@ -193,6 +206,10 @@ namespace SpeebUp
                 {
                     displayText = $"speed: <color=\"red\">{speed:00.00}</color> current avg: <color=\"red\">00.00</color> section best: <color=\"red\">{best:00.00}</color> section: <color=\"red\">{section}</color> || <color=\"red\">RECORDING?</color> || H: help";
                 }
+            }
+            if (toggleGreen && SceneManager.GetActiveScene().name == "Scn_Level_2_Sub_Green")
+            {
+                displayIndicators += $"green timer: <color=\"blue\">{(float)intervalTimer.GetValue(flipper):00.00}</color>";
             }
         }
     }
